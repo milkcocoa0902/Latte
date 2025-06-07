@@ -10,3 +10,4 @@ src/main/resources/gitignore/*
 src/main/resources/toptal/*
 local.properties
 .kotlin
+**/.env
