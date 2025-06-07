@@ -1,0 +1,13 @@
+ktor:
+  deployment:
+    port: $LATTE_SERVER_PORT
+  application:
+    modules:
+      - com.milkcocoa.info.latte.ApplicationKt.module
+  limit:
+    period: $LATTE_TOKEN_REFILL_PERIOD
+    token: $LATTE_CALL_TOKEN_COUNT
+latte:
+  endpoint: $LATTE_ENDPOINT_URL
+  clientId: $LATTE_CLIENT_ID
+  secretKey: $LATTE_SECRET_KEY

@@ -26,6 +26,7 @@ import io.ktor.http.parameters
 import io.ktor.util.network.UnresolvedAddressException
 import kotlinx.io.IOException
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.properties.Properties
 import kotlinx.serialization.properties.encodeToStringMap
 import kotlin.time.Clock
@@ -43,12 +44,12 @@ class Latte private constructor(
 ) {
     @OptIn(ExperimentalTime::class)
     private data class Token(
-        val token: String,
+        val tokenRaw: TokenResponse,
         val issuedAt: Instant
     )
 
     private var _currentToken: Token? = null
-    private val currentToken: String? = _currentToken?.token
+    private val currentToken: String? = _currentToken?.tokenRaw?.token
 
 
     companion object{
@@ -68,7 +69,7 @@ class Latte private constructor(
 
 
     @OptIn(ExperimentalTime::class)
-    suspend fun token(): String{
+    suspend fun token(): TokenResponse{
         val credentials = when(connectionInfo){
             is ConnectionInfo.Direct -> null
             is ConnectionInfo.Proxy -> connectionInfo.credentialsProvider?.provide(connectionInfo.host)
@@ -101,20 +102,20 @@ class Latte private constructor(
 
 
         _currentToken = Token(
-            token = tokenResponse.token,
+            tokenRaw = tokenResponse,
             issuedAt = Clock.System.now()
         )
 
-        return tokenResponse.token
+        return tokenResponse
     }
 
     @OptIn(ExperimentalTime::class)
     suspend fun<R> withToken(block: suspend (String) -> R): R{
         val token = _currentToken?.takeIf {
             Clock.System.now() > it.issuedAt.plus(420.seconds)
-        }?.token ?: token()
+        }?.tokenRaw ?: token()
 
-        return block(token)
+        return block(token.token)
     }
 
     suspend fun addressZip(token: String, request: AddressZipRequest): AddressZipResponse {
@@ -190,20 +191,40 @@ class Latte private constructor(
             }
             status.isClientError() -> {
                 throw runCatching {
-                    body<LatteException.ApiCallFailed>()
+                    runCatching {
+                        body<LatteException.ProxyError>().withCode(status)
+                    }.getOrElse { throwable ->
+                        when(throwable){
+                            is SerializationException -> body<LatteException.ApiCallFailed>().withCode(status)
+                            else -> throwable
+                        }
+                    }
                 }.getOrElse {
-                    LatteException.UnknownClientError(it)
+                    when(it){
+                        is LatteException -> it
+                        else -> LatteException.UnknownClientError(it).withCode(status)
+                    }
                 }
             }
             status.isServerError() -> {
                 throw runCatching {
-                    body<LatteException.ApiCallFailed>()
+                    runCatching {
+                        body<LatteException.ProxyError>().withCode(status)
+                    }.getOrElse { throwable ->
+                        when(throwable){
+                            is SerializationException -> body<LatteException.ApiCallFailed>().withCode(status)
+                            else -> throwable
+                        }
+                    }
                 }.getOrElse {
-                    LatteException.UnknownServerError(it)
+                    when(it){
+                        is LatteException -> it
+                        else -> LatteException.UnknownServerError(it).withCode(status)
+                    }
                 }
             }
             else -> {
-                throw LatteException.Unknown(null)
+                throw LatteException.Unknown(null).withCode(status)
             }
         }
     }
