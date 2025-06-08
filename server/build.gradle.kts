@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.ktor.server.ratelimit)
     implementation(libs.ktor.server.cors)
     implementation(libs.ktor.server.status)
+    implementation(libs.ktor.server.auth)
     implementation(libs.ktor.server.config.yaml)
     implementation(libs.ktor.serialization.json)
     testImplementation(libs.ktor.serverTestHost)
