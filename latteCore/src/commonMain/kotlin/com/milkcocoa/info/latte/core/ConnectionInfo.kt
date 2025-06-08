@@ -6,10 +6,6 @@ sealed interface ConnectionInfo{
     val addressZipPath: String
     val tokenPath: String
 
-    interface CredentialsProvider{
-        suspend fun provide(host: String): Pair<String, String>
-    }
-
     class Proxy(
         override val host: String,
         override val tokenPath: String = "/api/v1/j/token",

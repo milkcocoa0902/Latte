@@ -2,6 +2,7 @@ package com.milkcocoa.info.latte
 
 import com.milkcocoa.info.latte.core.ConnectionInfo
 import com.milkcocoa.info.latte.core.LatteException
+import com.milkcocoa.info.latte.core.executeCatching
 import com.milkcocoa.info.latte.core.ktorHttpClient
 import com.milkcocoa.info.latte.model.addresszip.AddressZipRequest
 import com.milkcocoa.info.latte.model.addresszip.AddressZipResponse
@@ -183,74 +184,4 @@ class Latte private constructor(
     )
 
 
-
-    private suspend inline fun<reified T> HttpResponse.handle(): T{
-        return when{
-            status.isSuccess() -> {
-                body<T>()
-            }
-            status.isClientError() -> {
-                throw runCatching {
-                    runCatching {
-                        body<LatteException.ProxyError>().withCode(status)
-                    }.getOrElse { throwable ->
-                        when(throwable){
-                            is SerializationException -> body<LatteException.ApiCallFailed>().withCode(status)
-                            else -> throwable
-                        }
-                    }
-                }.getOrElse {
-                    when(it){
-                        is LatteException -> it
-                        else -> LatteException.UnknownClientError(it).withCode(status)
-                    }
-                }
-            }
-            status.isServerError() -> {
-                throw runCatching {
-                    runCatching {
-                        body<LatteException.ProxyError>().withCode(status)
-                    }.getOrElse { throwable ->
-                        when(throwable){
-                            is SerializationException -> body<LatteException.ApiCallFailed>().withCode(status)
-                            else -> throwable
-                        }
-                    }
-                }.getOrElse {
-                    when(it){
-                        is LatteException -> it
-                        else -> LatteException.UnknownServerError(it).withCode(status)
-                    }
-                }
-            }
-            else -> {
-                throw LatteException.Unknown(null).withCode(status)
-            }
-        }
-    }
-
-    private suspend fun Throwable.relocate(): Nothing{
-        when(this){
-            is ConnectTimeoutException,
-            is SocketTimeoutException ->{
-                throw LatteException.NetworkTimeout
-            }
-            is UnresolvedAddressException,
-            is IOException ->{
-                throw LatteException.NoInternetConnection
-            }
-            is LatteException -> throw this
-            else -> throw LatteException.Unknown(this)
-        }
-    }
-
-
-    private suspend inline fun<reified R> executeCatching(block: suspend () -> HttpResponse): R{
-        return runCatching {
-            block()
-        }.fold(
-            onSuccess = { it.handle<R>() },
-            onFailure = { it.relocate() }
-        )
-    }
 }
