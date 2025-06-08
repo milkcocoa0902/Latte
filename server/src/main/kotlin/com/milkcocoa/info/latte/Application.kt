@@ -1,12 +1,19 @@
 package com.milkcocoa.info.latte
 
+import com.milkcocoa.info.latte.cache.MemoryCacheBackend
 import com.milkcocoa.info.latte.core.LatteException
+import com.milkcocoa.info.latte.core.plugin.HeaderAuthProvider
+import com.milkcocoa.info.latte.core.plugin.header
 import com.milkcocoa.info.latte.core.routing.jpp.v1.digitalAddressRoutes
+import com.milkcocoa.info.latte.core.routing.token.tokenRoutes
+import com.milkcocoa.info.latte.core.token.TokenGenerator
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.*
+import io.ktor.server.auth.Authentication
+import io.ktor.server.auth.authenticate
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
@@ -35,6 +42,44 @@ fun Application.module() {
             )
         }
     }
+
+    val tokenStorage = MemoryCacheBackend()
+    val tokenGenerator = TokenGenerator()
+
+    install(Authentication){
+        header("X-API-KEY"){
+            this.headerName = "X-API-KEY"
+            this.validate = { call, value ->
+                tokenGenerator.verify(value)
+            }
+            this.whenReject = { call, throwable ->
+                when(throwable){
+                    is HeaderAuthProvider.HeaderNotProvidedException ->call.respond(
+                        status = HttpStatusCode.Unauthorized,
+                        message = LatteException.ProxyError(
+                            errorCode = "401-0001",
+                            message = "認証用トークンがセットされていません。。"
+                        )
+                    )
+                    is HeaderAuthProvider.ValidateFailedException ->call.respond(
+                        status = HttpStatusCode.Unauthorized,
+                        message = LatteException.ProxyError(
+                            errorCode = "401-0002",
+                            message = "認証に失敗しました。"
+                        )
+                    )
+                    else -> call.respond(
+                        status = HttpStatusCode.Unauthorized,
+                        message = LatteException.ProxyError(
+                            errorCode = "401-0003",
+                            message = "認証に失敗しました。"
+                        )
+                    )
+                }
+            }
+        }
+    }
+
     install(Resources)
     install(ContentNegotiation){
         json(Json {
@@ -80,14 +125,23 @@ fun Application.module() {
         }
     }
 
+
+
     routing {
-        digitalAddressRoutes(
-            latte = Latte.of(
-                url = environment.config.property("latte.endpoint").getString(),
-                clientId = environment.config.property("latte.clientId").getString(),
-                secretKey = environment.config.property("latte.secretKey").getString(),
-                forwardedFor = ""
-            )
+        tokenRoutes(
+            tokenStorage = tokenStorage,
+            tokenGenerator = tokenGenerator,
         )
+
+        authenticate("X-API-KEY"){
+            digitalAddressRoutes(
+                latte = Latte.of(
+                    url = environment.config.property("latte.endpoint").getString(),
+                    clientId = environment.config.property("latte.clientId").getString(),
+                    secretKey = environment.config.property("latte.secretKey").getString(),
+                    forwardedFor = ""
+                )
+            )
+        }
     }
 }
