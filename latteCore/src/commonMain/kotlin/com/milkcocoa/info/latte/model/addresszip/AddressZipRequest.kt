@@ -4,6 +4,29 @@ import com.milkcocoa.info.latte.common.BoolIntSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/**
+ * 住所情報から郵便番号を検索するためのリクエストを表すデータクラス。
+ * 
+ * このクラスは日本郵便APIの住所検索エンドポイントに送信されるリクエストの
+ * パラメータを定義します。様々な住所情報の組み合わせで検索が可能です。
+ *
+ * @property prefCode 都道府県コード
+ * @property prefName 都道府県名
+ * @property prefKana 都道府県名（カナ）
+ * @property prefRoma 都道府県名（ローマ字）
+ * @property cityCode 市区町村コード
+ * @property cityName 市区町村名
+ * @property cityKana 市区町村名（カナ）
+ * @property cityRoma 市区町村名（ローマ字）
+ * @property townName 町域名
+ * @property townKana 町域名（カナ）
+ * @property townRoma 町域名（ローマ字）
+ * @property freeWord フリーワード検索
+ * @property flgGetCity 市区町村一覧を取得するフラグ
+ * @property flgGetPref 都道府県一覧を取得するフラグ
+ * @property page 取得するページ番号（デフォルト: 1）
+ * @property limit 1ページあたりの結果数（デフォルト: 1000）
+ */
 @Serializable
 @SerialName("AddressZipRequest")
 data class AddressZipRequest(
