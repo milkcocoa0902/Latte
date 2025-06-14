@@ -79,6 +79,32 @@ latte.withToken { token ->
 }
 ```
 
+#### Proxy Server Security
+
+The proxy server is protected by API keys to ensure secure access:
+
+- All API endpoints (except `/proxytoken`) require an `X-API-KEY` header for authentication
+- Clients can obtain an API key by calling the `/proxytoken` endpoint
+- The DefaultCredentialsProvider automatically handles API key acquisition and renewal and is specifically designed to work with the latte proxy server implementation
+
+For custom authentication, you can implement your own CredentialsProvider:
+
+```kotlin
+// Create a custom credentials provider
+class MyCredentialsProvider : CredentialsProvider {
+    override suspend fun provide(host: String): Pair<String, String> {
+        // Return header name and value
+        return "X-API-KEY" to "your-api-key"
+    }
+}
+
+// Use it with the proxy connection
+val latte = Latte.of(
+    ConnectionInfo.Proxy("http://localhost:12345")
+        .with(MyCredentialsProvider())
+)
+```
+
 For more details, see the Japanese documentation below.
 
 ---
@@ -214,7 +240,7 @@ LATTE_ENDPOINT_URL=https://stb-ssss.da.pf.japanpost.jp
 
 # 日本郵便から提供されたクライアントID
 LATTE_CLIENT_ID=your_client_id
-               
+
 # 日本郵便から提供されたシークレットキー
 LATTE_SECRET_KEY=your_secret_key            
 
@@ -224,7 +250,7 @@ LATTE_SERVER_PORT=12345
 
 # トークン制限のリフィル期間（秒）
 LATTE_TOKEN_REFILL_PERIOD=300
-                      
+
 # 期間内に許可するAPI実行回数
 LATTE_CALL_TOKEN_COUNT=60                          
 ```
@@ -259,6 +285,32 @@ latte.withToken { token ->
         )
     )
 }
+```
+
+### プロキシサーバーのセキュリティ
+
+プロキシサーバーはAPIキーによって保護されています：
+
+- すべてのAPIエンドポイント（`/proxytoken`を除く）は認証のために`X-API-KEY`ヘッダーが必要です
+- クライアントは`/proxytoken`エンドポイントを呼び出すことでAPIキーを取得できます
+- DefaultCredentialsProviderは自動的にAPIキーの取得と更新を処理し、latteで提供しているプロキシサーバーと連携するように設計されています
+
+カスタム認証を実装するには、独自のCredentialsProviderを実装することができます：
+
+```kotlin
+// カスタム認証プロバイダーを作成
+class MyCredentialsProvider : CredentialsProvider {
+    override suspend fun provide(host: String): Pair<String, String> {
+        // ヘッダー名と値を返す
+        return "X-API-KEY" to "あなたのAPIキー"
+    }
+}
+
+// プロキシ接続で使用する
+val latte = Latte.of(
+    ConnectionInfo.Proxy("http://localhost:12345")
+        .with(MyCredentialsProvider())
+)
 ```
 
 
